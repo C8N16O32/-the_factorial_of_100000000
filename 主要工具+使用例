@@ -1,0 +1,1500 @@
+#include "stdio.h"
+#include "math.h"
+#include "windows.h"
+
+//C大数类
+struct lint { int len = 0; int size = 0; int* v = NULL; };//length、size、value
+#define lintminl 64
+#define lintbase 100000000
+#define lintchecksize(a, tsize) if ( (tsize) > (a)->size ||(tsize) >= lintminl && (tsize) * 2 <= (a)->size ||(tsize) < lintminl && lintminl * 2 <= (a)->size )lintresetsize(a, tsize)
+
+//lint_basic
+void lintresetsize(lint *a, int size) {
+	int i = lintminl; while (i < size)i *= 2; int sizenew = i;
+	int *vtemp = NULL; vtemp = new int[sizenew]; for (i = 0; i < sizenew; i++)vtemp[i] = 0;
+	if (a->len > sizenew)a->len = sizenew; for (i = 0; i < a->len; i++)vtemp[i] = a->v[i];
+	delete[]a->v; a->v = vtemp; a->size = sizenew; vtemp = NULL; return;
+}
+void lintresetv(lint *a) {
+	char *av = (char*)(a->v);//优化
+	int I = a->len*sizeof(int);
+	for (int i = 0; i < I; i++)av[i] = 0; a->len = 0;
+	return;
+}
+void lintnew(lint*a) {
+	int size = lintminl;
+	a->len = size; a->size = size;
+	a->v = new int[size];
+	lintresetv(a); return;
+}
+void lintnew(lint **ap) {
+	*ap = new lint;
+	lintnew(*ap); return;
+}
+void lintdelete(lint *a) {
+	delete[]a->v; a->v = NULL; return;
+}
+void lintdelete(lint **ap) {
+	lintdelete(*ap);
+	delete *ap;
+	*ap = NULL;
+	return;
+}
+void lintshift(lint *a, int n) {
+	lintchecksize(a, a->len + n);
+	char *av = (char*)a->v;//优化
+	int start = a->len*sizeof(int) - 1;
+	int offset = n * sizeof(int);
+	for (int i = start; i >= 0; i--) { av[i + offset] = av[i]; av[i] = 0; }
+	a->len += n; return;
+}
+void lintcopy(lint *a, lint *b) {
+	lintresetv(a); lintchecksize(a, b->len);
+	char*av = (char*)a->v, *bv = (char*)b->v;//优化
+	int I = b->len*sizeof(int);
+	for (int i = 0; i < I; i++) av[i] = bv[i]; a->len = b->len;
+	return;
+}
+int lintcmp(lint *a, lint *b) {
+	//不支持负数
+	if (a->len > b->len)return 1;
+	if (a->len < b->len)return -1;
+	int i = a->len;
+	while (i--) {
+		if (a->v[i] > b->v[i])return 1;
+		if (a->v[i] < b->v[i])return -1;
+	}
+	return 0;
+}
+void lintsetnum(lint *a, int len, int num) {
+	lintresetv(a);
+	//不设置排除异常情况
+	int base[8] = { 1, 11, 111, 1111, 11111, 111111, 1111111, 11111111 }, base7;
+	for (int i = 0; i < 8; i++)base[i] *= num;
+	base7 = base[7];
+	int j = (len - 1); 
+	lintchecksize(a, j / 8 + 1);
+	a->v[j / 8] = base[j % 8];
+	a->len = j / 8 + 1;
+	for (j = 0; j < (len - 1) / 8; j++)
+		a->v[j] = base7;
+	return;
+}
+//lint_print
+void lintprintfvalue(lint *a) {
+	int i, j, isfirst = 1;
+	char dest[40096] = "\0", *destp = dest;
+	for (i = a->len - 1; i >= 0; i--) {
+		if (a->len - i > 12500000) { printf("\n打印中止：打印长度超过了1亿位\n"); return; }
+		if (isfirst) {
+			isfirst = 0; if (a->v[i])destp += sprintf(destp, "%d", a->v[i]);
+		}
+		else {
+			destp += sprintf(destp, "%08d", a->v[i]);
+			if (destp - dest >= 40000) { 
+				printf("%s", dest); destp = dest; 
+				for (j = 0; j < 40096; j++)dest[j] = 0; 
+			}
+		}
+	}
+	if (isfirst)printf("0");
+	else printf("%s", dest);
+	return;
+}
+void lintprintfstrlen(lint *a) {
+	//长度
+	int i = a->v[a->len - 1], j = 0;
+	while (i > 0) { i /= 10; j++; }
+	printf("%d", j - 8 + a->len * 8);
+	//长度 end
+}
+void lintprintf(lint *a) {
+	lintprintfvalue(a);
+	printf("\n解的总长度：");
+	lintprintfstrlen(a);
+	printf("\n");
+	return;
+}
+void lintsprintf(lint *a, char* temp0, int tempsize = -1) {
+	int isfirst = 1, i; char* temp = temp0;
+	if (tempsize != -1) {
+		i = tempsize - 1;
+		while (temp[i] == '\0'&&i >= 0)i--;
+		temp += i + 1;
+	}
+	for (i = a->len - 1; i >= 0; i--) {
+		if (isfirst) {
+			if (a->v[i])temp += sprintf(temp, "%d", a->v[i]);
+			isfirst = 0;
+		}
+		else temp += sprintf(temp, "%08d", a->v[i]);
+		if (tempsize != -1 && temp - temp0 > tempsize - 8)return;
+	}
+	if (isfirst)temp += sprintf(temp, "0");
+	temp += sprintf(temp, "\n");
+	return;
+}
+//lint_add
+void linta(lint *a, lint *b, int offset = 0) {
+	if (b->len == 0)return;
+	int i = a->len, n = b->len + offset; if (i < n)i = n;
+	lintchecksize(a, i + 1);
+	int temp = 0, base = lintbase;
+	int *av = a->v + offset, *bv = b->v;//优化
+	i = 0; while (i < b->len&&bv[i] == 0)i++;
+	while (1) {
+		if (i < b->len)temp += bv[i];
+		else if (temp == 0)break;
+		temp += av[i];
+		av[i] = temp%base; temp /= base; i++;
+	}
+	i += offset;
+	if (a->len < i)a->len = i;
+	return;
+}
+void linta(lint *a, int num, int section = 0) {
+	lint*b = NULL; lintnew(&b);
+	b->v[0] = num; b->len = 1;
+	linta(a, b, section);
+	lintdelete(&b);
+	return;
+}
+void lintafast(lint *a, unsigned long long num, int sect = 0, int sect2 = 0) {
+	if (num <= 0)return;
+	int i, base, base2, p10[9] = { 1,10,100,1000,10000,100000,1000000,10000000,100000000 };
+	base2 = p10[sect2]; base = p10[8 - sect2];
+	int temp[5] = { 0 };
+	temp[0] = num%base*base2; num /= base;
+	i = 1; while (num) { temp[i] = num%lintbase; num /= lintbase; i++; }
+	int*v = a->v, size = a->size;//优化
+	int j = 5; while (j > 0 && temp[j - 1] == 0)j--;
+	int temp0 = 0;
+	i = 0;
+	while (sect + i < size) {
+		v[sect + i] += temp0; temp0 = 0;
+		if (i < j)v[sect + i] += temp[i];
+		if (v[sect + i] >= lintbase) { temp0 = v[sect + i] / lintbase; v[sect + i] %= lintbase; }
+		else if (i >= j)break;
+		i++;
+	}
+	if (sect + i < size)i++;
+	if (a->len < sect + i)a->len = sect + i; return;
+}
+
+//lint_sub
+void lints(lint *a, lint *b) {
+	//不支持负数
+	int i, n = a->len, temp = 0, base = lintbase;
+	i = 0; while (i < b->len&&b->v[i] == 0)i++;
+	while (1) {
+		if (i < b->len)temp -= b->v[i];
+		else if (temp == 0)break;
+		temp += a->v[i];
+		if (temp >= 0) { a->v[i] = temp; temp = 0; }
+		else { a->v[i] = temp + base; temp = -1; }
+		i++;
+	}
+	for (i = a->len - 1; i >= 0; i--)if (a->v[i] != 0)break; a->len = i + 1;
+	lintchecksize(a, a->len);
+	return;
+}
+void lints(lint *a, int num, int section = 0) {
+	lint*b = NULL; lintnew(&b); lintchecksize(b, section + 1);
+	b->v[section] = num; b->len = section + 1;
+	lints(a, b);
+	lintdelete(&b);
+	return;
+}
+//lint_muti
+void lintm0(lint *a, lint *b) {
+	int i, j, I, al = a->len, bl = b->len, I2 = al + bl; long long temp = 0, temp2, base = lintbase;
+	lint*c = NULL; lintnew(&c); lintchecksize(c, I2);
+	int *av = a->v, *bv = b->v, *cv = c->v;//优化
+	i = 0; while (i < al&&av[i] == 0)i++;
+	j = 0; while (j < bl&&bv[j] == 0)j++; I = i + j;
+	for (i = I; i < I2; i++) {
+		for (j = 0; j <= i; j++) {
+			temp2 = 1;
+			if (j < al)temp2 *= av[j]; else continue;
+			if (i - j < bl)temp2 *= bv[i - j]; else continue;
+			temp += temp2;
+			if (j % 400 == 399) { lintafast(c, temp / base, i + 1); temp %= base; }
+		}
+		lintafast(c, temp%base, i); temp /= base;
+	}
+	while (c->v[c->len - 1] == 0)c->len--;
+	lintcopy(a, c);
+	lintdelete(&c);
+	return;
+}
+//分治乘法
+void lintm(lint *a, lint *b, int mode = 2);
+void lintm1div(lint *d, lint *s, int end, int start) {
+	if (end > s->len)end = s->len;
+	if (end <= start)return;
+	lintchecksize(d, end - start);
+	int is = start*sizeof(int), ie = end*sizeof(int);
+	char *dv = (char*)d->v, *sv = (char*)s->v;
+	for (int i = is; i < ie; i++)dv[i - is] = sv[i];
+	int *dvint = d->v;
+	d->len = end - start; while (d->len>0 && dvint[d->len - 1] == 0)d->len--;
+	return;
+}
+#define lintm1divmain(x, y, a, b, c, d, e, f, n) lintm1div(a, x, x->len, n); lintm1div(b, x, n, 0); lintm1div(c, y, y->len, n); lintm1div(d, y, n, 0); lintcopy(e, a); linta(e, b); lintcopy(f, c); linta(f, d)
+void lintm1sum(lint *q, lint *p, lint *k, int n) {
+	lint *re = NULL; lintnew(&re);
+	if (k->len) {
+		lints(k, q); lints(k, p);
+		linta(re, k, n);
+	}
+	if (q->len) {
+		linta(re, q, n * 2);
+	}
+	linta(re, p);
+	lintcopy(q, re);
+	lintdelete(&re);
+	return;
+}
+void lintm1(lint *x, lint *y) {
+	int n = x->len; if (n < y->len)n = y->len; n = n / 2;
+	lint *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *f = NULL;
+	lintnew(&a); lintnew(&b); lintnew(&c); lintnew(&d); lintnew(&e); lintnew(&f);
+	lintm1divmain(x, y, a, b, c, d, e, f, n);
+	lintm(a, c); lintdelete(&c);
+	lintm(b, d); lintdelete(&d);
+	lintm(e, f); lintdelete(&f);
+	lintm1sum(a, b, e, n);
+	lintcopy(x, a);
+	lintdelete(&a); lintdelete(&b); lintdelete(&e);
+	return;
+}
+//FFT乘法
+struct comp { double x, y; };
+const double pi = acos(-1);
+#define coswap(a,b,temp) { temp = (a)->x;(a)->x = (b)->x;(b)->x = temp; temp = (a)->y;(a)->y = (b)->y;(b)->y = temp; }
+#define coadd(a,b) {(a)->x += (b)->x; (a)->y += (b)->y; }
+#define cosub(a,b) {(a)->x -= (b)->x; (a)->y -= (b)->y; }
+#define comuti(a,b,temp) {temp = (a)->x*(b).x - (a)->y*(b).y; (a)->y = (a)->x*(b).y + (a)->y*(b).x; (a)->x = temp; }
+void lintm2_rev(int **rev, int*size, int len) {
+	int i, tim = 0, s = 1;
+	while (s < len) { s <<= 1; tim++; }
+	*rev = new int[s]; for (i = 0; i < s; i++)(*rev)[i] = 0;
+	for (i = 0; i < s; i++)(*rev)[i] = ((*rev)[i >> 1] >> 1) | ((i & 1) << (tim - 1));
+	*size = s;
+	return;
+}
+void lintm2_scan(comp*a, lint *x, lint *y, int digit) {
+	int i, j, tempi, p10[9] = { 1,10,100,1000,10000,1e5,1e6,1e7,1e8 }, p10d = p10[digit];
+	long long temp;
+	i = 0; j = 0; temp = 0; tempi = 0;
+	while (1) {
+		if (tempi < digit&&i < x->len) {
+			temp += x->v[i] * (long long)1 * p10[tempi]; i++; tempi += 8;
+		}
+		a[j].x = temp%p10d; j++;
+		temp /= p10d; tempi -= digit;
+		if (tempi <= 0 && i >= x->len)break;
+	}
+	i = 0; j = 0; temp = 0; tempi = 0;
+	while (1) {
+		if (tempi < digit&&i < y->len) {
+			temp += y->v[i] * (long long)1 * p10[tempi]; i++; tempi += 8;
+		}
+		a[j].y = temp%p10d; j++;
+		temp /= p10d; tempi -= digit;
+		if (tempi <= 0 && i >= y->len)break;
+	}
+	return;
+}
+void lintm2_FFT(comp*a, const int fla, int *rev, int size) {
+	int i, j, k; double temp; comp tempc;
+	for (i = 0; i < size; i++)if (i < rev[i])coswap(a + i, a + rev[i], temp);
+	for (i = 1; i < size; i <<= 1) {
+		const comp w = { cos(pi / i), fla*sin(pi / i) };
+		for (j = 0; j < size; j += (i << 1)) {
+			comp K = { 1,0 };
+			for (k = 0; k < i; k++) {
+				comuti(&K, w, temp);
+				if ((k + 1) % 128 == 0)K = { cos(pi*(k + 1) / i), fla*sin(pi*(k + 1) / i) };//暂时
+				comp x = a[j + k], y = a[j + k + i];
+				comuti(&y, K, temp);
+				a[j + k] = x; coadd(a + j + k, &y);
+				a[j + k + i] = x; cosub(a + j + k + i, &y);
+			}
+		}
+	}
+	for (j = 0; j < size / 2; j++)coswap(a + j, a + size - 1 - j, temp);
+	if (fla == -1)
+		for (j = 0; j < size; j++) { a[j].x /= size; a[j].y /= size; }
+	return;
+}
+void lintm2(lint *x, lint *y) {
+	int i, size, digit;
+	i = x->len + y->len;
+	i = i * 4;
+	digit = 2;
+	if (i <= 393208)digit = 3;
+	if (i <= 32760)digit = 4;
+	if (i <= 5112)digit = 5;
+	if (i <= 640)digit = 6;
+	if (i <= 97)digit = 7;
+	if (i <= 7)digit = 8;
+	i = x->len + y->len;
+
+	//倒序位
+	int *rev = NULL;
+	lintm2_rev(&rev, &size, i * 8 / digit + 1);
+
+	//a,b传值
+	comp*a = NULL; a = new comp[size];
+	for (i = 0; i < size; i++) a[i] = { 0,0 };
+	lintm2_scan(a, x, y, digit);
+
+	//正变换-序列乘法-反变换
+	double tempd;
+	lintm2_FFT(a, 1, rev, size);
+
+	for (i = 0; i < size; i++) 
+		comuti(a + i, a[i], tempd);
+
+	lintm2_FFT(a, -1, rev, size);
+
+	//归一化
+	delete[]rev;
+	for (i = 0; i < size; i++)a[i].x = a[i].y / 2;
+
+	//x 传值
+	unsigned long long temp2;
+	lintresetv(x);
+	lintchecksize(x, size*digit / 8 + 1);
+	for (i = 0; i < size; i++) {
+		temp2 = (unsigned long long)(a[i].x + 0.49);
+		if (temp2)lintafast(x, temp2, i*digit / 8, i*digit % 8);
+	}
+	while (x->v[x->len - 1] == 0)x->len--;
+
+	//回收空间
+	delete[]a;
+
+	return;
+}
+//方阵形二维FFT
+struct comat { comp **v = NULL; int size; };
+void comatresetv(comat *a) {
+	int i, j, size = a->size;
+	comp *avi = NULL;
+	for (i = 0; i < size; i++) {
+		avi = (a)->v[i];
+		for (j = 0; j < size; j++)avi[j] = { 0,0 };
+	}
+}
+void comatnew(comat **a, int size) {
+	int i, j;
+	*a = new comat;
+	(*a)->v = new comp*[size];
+	comp *avi = NULL;
+	for (i = 0; i < size; i++) {
+		(*a)->v[i] = new comp[size];
+		avi = (*a)->v[i];
+		for (j = 0; j < size; j++)avi[j] = { 0,0 };
+	}
+	(*a)->size = size; return;
+}
+void comatdelete(comat **a) {
+	int i, size = (*a)->size;
+	for (i = 0; i < size; i++)
+		delete[](*a)->v[i];
+	delete[](*a)->v; (*a)->v = NULL;
+	delete[](*a);
+	return;
+}
+void comatprint(comat *a) {
+	int i, j, size = a->size;
+	comp **av = a->v;
+	for (i = 0; i < size; i++) {
+		for (j = 0; j < size; j++)
+			printf("[%.0lf, %.0lf]\t", av[i][j].x, av[i][j].y);
+	}
+	printf("\n");
+	return;
+}
+void comatcopy(comat *a, comat *b) {
+	int i, j, size = a->size;
+	comp **av = a->v, **bv = b->v;
+	for (i = 0; i < size; i++) {
+		for (j = 0; j < size; j++)
+			av[i][j] = bv[i][j];
+	}return;
+}
+void comatm(comat *a, comat *b) {
+	int i, j, k, size = a->size;
+	comp temp, temp2; double tempd;
+	comp **av = a->v, **bv = b->v;
+	comat *c = NULL; comatnew(&c, size);
+	for (i = 0; i < size; i++) {
+		for (j = 0; j < size; j++) {
+			temp = { 0,0 };
+			for (k = 0; k < size; k++) {
+				temp2 = av[i][k];
+				comuti(&temp2, bv[k][j], tempd);
+				coadd(&temp, &temp2);
+			}
+			c->v[i][j] = temp;
+		}
+	}
+	comatcopy(a, c); comatdelete(&c); return;
+}
+void comatt(comat *a) {
+	//转置 transpose
+	comat *b; comatnew(&b,a->size);
+	int i, j, size = a->size;
+	comp **av = a->v, **bv = b->v;
+	for (i = 0; i < size; i++) {
+		for (j = 0; j < size; j++)
+			bv[i][j] = av[j][i];
+	}
+	comatcopy(a, b); comatdelete(&b); return;
+}
+void lintm2mat_scan(comat*ma, lint *x, lint *y, int digit) {
+	int i, j, tempi, p10[9] = { 1,10,100,1000,10000,1e5,1e6,1e7,1e8 }, p10d = p10[digit];
+	long long temp; comp*a;
+	int r, size=ma->size;//行选
+
+	i = 0; j = 0; temp = 0; tempi = 0;
+	r = 0; a = ma->v[r];
+	while (1) {
+		if (tempi < digit&&i < x->len) {
+			temp += x->v[i] * (long long)1 * p10[tempi]; i++; tempi += 8;
+		}
+		a[j].x = temp%p10d; j++;
+		if (j >= size) { j = 0; r++; a = ma->v[r]; }
+		temp /= p10d; tempi -= digit;
+		if (tempi <= 0 && i >= x->len)break;
+	}
+
+	i = 0; j = 0; temp = 0; tempi = 0;
+	r = 0; a = ma->v[r];
+	while (1) {
+		if (tempi < digit&&i < y->len) {
+			temp += y->v[i] * (long long)1 * p10[tempi]; i++; tempi += 8;
+		}
+		a[j].y = temp%p10d; j++;
+		if (j >= size) { j = 0; r++; a = ma->v[r]; }
+		temp /= p10d; tempi -= digit;
+		if (tempi <= 0 && i >= y->len)break;
+	}
+	return;
+}
+void lintm2mat_FFT_mid(comat *ma, int fla) {
+	//数乘单位根W(N, k1n2)
+	int i, j, size = ma->size, size2 = size*size;
+	comp **av = ma->v, K; double temp;
+	for (i = 0; i < size; i++) {
+		for (j = 0; j < size; j++) {
+			K = { cos(pi * 2 * i*j / size2), -fla*sin(pi * 2 * i*j / size2) };
+			comuti(av[i] + j, K, temp);
+		}
+	}
+	return;
+}
+void lintm2mat_FFT(comat *ma, int fla, int*rev, int size) {
+	int i;
+	//列变换
+	for (i = 0; i < size; i++)
+		lintm2_FFT(ma->v[i], fla, rev, size);
+	//数乘单位根
+	lintm2mat_FFT_mid(ma, fla);
+	//行变换
+	for (i = 0; i < size; i++)
+		lintm2_FFT(ma->v[i], fla, rev, size);
+	//按非复矩阵转置方法进行转置
+	comatt(ma);
+	return;
+}
+void lintm2mat(lint *x, lint *y) {
+	int i, j, size, digit;
+	i = x->len + y->len;
+	i = i * 4;
+	digit = 3;
+	if (i <= 6117000)digit = 4;
+	if (i <= 40952)digit = 5;
+	if (i <= 3064)digit = 6;
+	if (i <= 80)digit = 7;
+	i = x->len + y->len;
+
+	//倒序位
+	int *rev = NULL;
+	i = i * 8 / digit + 1;
+	size = 1; while (size*size < i)size *= 2;
+	lintm2_rev(&rev, &size, size);
+
+	//a,b传值
+	comat*ma = NULL; comatnew(&ma, size);
+	lintm2mat_scan(ma, x, y, digit);
+
+	//正变换-序列乘法-反变换
+	lintm2mat_FFT(ma, 1, rev, size);
+
+	double tempd;
+	for (i = 0; i < size; i++)
+		for (j = 0; j < size; j++)
+			comuti(ma->v[i] + j, ma->v[i][j], tempd);
+
+	lintm2mat_FFT(ma, -1, rev, size);
+
+	//传值
+	for (i = 0; i < size; i++)
+		for (j = 0; j < size; j++)
+			ma->v[i][j].x = ma->v[i][j].y / 2;
+
+	//x 传值
+	unsigned long long temp2;
+	lintresetv(x);
+	lintchecksize(x, size*size*digit / 8 + 1);
+	for (i = 0; i < size; i++)
+		for (j = 0; j < size; j++) {
+		temp2 = (unsigned long long)(ma->v[i][j].x + 0.49);
+		if (temp2)lintafast(x, temp2, (i*size + j)*digit / 8, (i*size + j)*digit % 8);
+	}
+	while (x->v[x->len - 1] == 0)x->len--;
+
+	//回收空间
+	comatdelete(&ma);
+	return;
+}
+//乘法封装
+#define lintm1minl 1000
+#define lintm2minl 64
+#define lintm2matminl 131072
+#define lintm2maxl 2097152*2
+void lintm2mat_mutithread(lint *x, lint *y, int threadnuma);
+void lintm(lint *a, lint *b, int mode) {
+	if (b->len == 1 && b->v[0] == 1) {
+		return;
+	}
+	if (a->len == 1 && a->v[0] == 1) {
+		lintcopy(a, b);
+		return;
+	}
+	if (a->len == 0 || b->len == 0) {
+		lintresetv(a); lintchecksize(a, 0);
+		return;
+	}
+	if (a->len >= lintm2minl && b->len >= lintm2minl)
+		if (a->len < lintm2maxl && b->len < lintm2maxl) {
+			if (a->len >= lintm2matminl && b->len >= lintm2matminl)
+				lintm2mat_mutithread(a, b, 12);
+			else 
+			lintm2(a, b); return;
+		}
+	if (a->len <= lintm1minl && b->len <= lintm1minl) {
+		lintm0(a, b); return;
+	}
+	switch (mode) {
+	case 1:lintm0(a, b); return;//原始竖式乘法 o(n^2)
+	case 2:lintm1(a, b); return;//分治乘法 o(n^1.59)
+	case 4:lintm2(a, b); return;//FFT乘法 ≈o(nlogn)
+	default:break;
+	}
+	return;
+}
+void lintm(lint *a, int num, int section = 0, int mode = 2) {
+	lint*c = NULL; lintnew(&c); lintchecksize(c, section + 1);
+	linta(c, num, section);
+	lintm(a, c, mode);
+	lintdelete(&c); return;
+}
+//lint_div
+int lintd(lint *a, lint *b) {
+	lint*c = NULL; lintnew(&c); lintchecksize(c, a->len);
+	lint*d = NULL; lintnew(&d); lintchecksize(d, a->len);
+	lint*e = NULL; lintnew(&e); lintchecksize(e, a->len);
+	int i;
+	while (lintcmp(a, b) != -1) {
+		lintresetv(d); linta(d, 1);
+		while (1) {
+			lintcopy(e, b); lintm(e, d); lintm(e, 10);
+			if (lintcmp(a, e) == -1)break;
+			lintm(d, 10);
+		}
+		i = 1;
+		while (1) {
+			lintcopy(e, b); lintm(e, d); lintm(e, i + 1);
+			if (lintcmp(a, e) == -1)break;
+			i++;
+		}
+		lintcopy(e, b); lintm(d, i); lintm(e, d);
+		linta(c, d);
+		lints(a, e);
+	}
+	int re = 0;
+	lintresetv(d);
+	if (lintcmp(a, d) == 0)re = 0; else re = 1;
+	i = c->len - 1; while (c->v[i] == 0 && i >= 0)i--; c->len = i + 1;
+	lintcopy(a, c);
+	lintdelete(&c); lintdelete(&d); lintdelete(&e);
+	return re;
+}
+void lintd(lint *a, int num, int section = 0) {
+	lint*c = NULL; lintnew(&c); lintchecksize(c, a->len);
+	linta(c, num, section);
+	lintd(a, c);
+	lintdelete(&c);
+	return;
+}
+//二分法连乘
+#define lintmslen 32
+#define lintmsminl 16
+void lintmsnew(lint**temp) {
+	for (int i = 0; i < lintmslen; i++) { lintnew(temp + i); temp[i]->v[0] = 1; temp[i]->len = 1; }return;
+}
+void lintmsnew(lint***ptemp) {
+	*ptemp = new lint*[lintmslen];
+	lintmsnew(*ptemp); return;
+}
+void lintmsdelete(lint**temp) {
+	for (int i = 0; i < lintmslen; i++)lintdelete(temp + i); return;
+}
+void lintmsdelete(lint***ptemp) {
+	lintmsdelete(*ptemp);
+	delete[] * ptemp; *ptemp = NULL; return;
+}
+void lintmsresetv(lint**temp) {
+	for (int i = 0; i < lintmslen; i++) { lintresetv(temp[i]); temp[i]->v[0] = 1; temp[i]->len = 1; }return;
+}
+void lintms(lint**temp, int n, int section = 0) {
+	int ti = 0; int tb = lintmsminl;
+	lintm(temp[0], n, section);
+	while (temp[ti]->len >= tb) {
+		lintm(temp[ti + 1], temp[ti]);
+		lintresetv(temp[ti]); temp[ti]->v[0] = 1; temp[ti]->len = 1;
+		tb *= 2; ti++;
+	}
+	return;
+}
+void lintms(lint**temp, lint *a) {
+	int ti = 0; int tb = lintmsminl;
+	while (ti<lintmslen&&a->len >= tb) {
+		tb *= 2; ti++;
+	}
+	lintm(temp[ti], a);
+	while (temp[ti]->len >= tb) {
+		lintm(temp[ti + 1], temp[ti]);
+		lintresetv(temp[ti]); temp[ti]->v[0] = 1; temp[ti]->len = 1;
+		tb *= 2; ti++;
+	}
+	return;
+}
+void lintms(lint**temp, lint**temp2) {
+	for (int i = 0; i < lintmslen; i++)lintms(temp, temp2[i]); return;
+}
+void lintms2lint(lint**temp, lint *a) {
+	for (int i = 0; i < lintmslen; i++)lintm(a, temp[i]); return;
+}
+
+//素数&素数因子
+struct pri { int*prik = NULL, *priflag = NULL, *priv = NULL, prisize = 0; };
+void prinewandset(pri*a, int prisize = 3) {
+	//开辟筛查表
+	if (prisize < 3)prisize = 3;
+	delete[]a->priflag;
+	a->priflag = new int[prisize];
+	int i = 0, j = 0, k = 1;
+	for (i = 0; i < prisize; i++)a->priflag[i] = 0;
+	//特殊筛质数
+	for (i = 2; i < prisize; i++)
+		if (!a->priflag[i]) {
+			for (j = i * 1; j < prisize; j += i)
+				a->priflag[j] = k;
+			k++;
+		}
+	//检查质数个数
+	j = 0;
+	for (i = 2; i < prisize; i++)if (j < a->priflag[i])j = a->priflag[i];
+	//质数表
+	delete[]a->prik;
+	a->prik = new int[j];
+	i = 2; j = 0; k = 0;
+	for (i = 2; i < prisize; i++)if (j < a->priflag[i]) { j = a->priflag[i]; a->prik[k] = i; k++; }
+	prisize = k;
+	//质因数表
+	delete[]a->priv;
+	a->priv = new int[prisize];
+	for (i = 0; i < prisize; i++)
+		a->priv[i] = 0;
+	a->prisize = prisize;
+	return;
+}
+void prinewandset(pri**ap, int prisize) {
+	if (*ap == NULL)*ap = new pri;
+	prinewandset(*ap, prisize); return;
+}
+void priresetv(pri*a) {
+	int i; for (i = 0; i < a->prisize; i++)a->priv[i] = 0; return;
+}
+void pridelete(pri*a) {
+	delete[] a->priflag; a->priflag = NULL;
+	delete[] a->prik; a->prik = NULL;
+	delete[] a->priv; a->priv = NULL;
+	a->prisize = 0; return;
+}
+void pridelete(pri**ap) {
+	pridelete(*ap);
+	delete *ap; *ap = NULL; return;
+}
+//取出质因数表的一部分
+void pricopy(pri*a, pri*b, int start, int *endplus1) {
+	if (*endplus1 > b->prisize)*endplus1 = b->prisize;
+	int size = *endplus1 - start;
+	delete[]a->prik; a->prik = new int[size]; delete[]a->priv; a->priv = new int[size]; delete[]a->priflag; a->priflag = NULL;
+	for (int i = 0; i < size; i++) { a->prik[i] = b->prik[i + start]; a->priv[i] = b->priv[i + start]; }
+	a->prisize = size;
+	return;
+};
+//分解质因数-一个数字
+void prif1(pri *a, int num, int mode = 1) {
+	if (num <= 1)return;
+	int priord = 0;
+	//分解质因数
+	while (num > 1) {
+		priord = a->priflag[num] - 1;
+		a->priv[priord] += mode;
+		num /= a->prik[priord];
+	}
+	return;
+}
+//分解质因数-阶乘
+void priffact(pri *a, int num, int mode = 1) {
+	for (int i = 2; i <= num; i++)
+		prif1(a, i, 1);
+	return;
+}
+//分解质因数-排列数
+void prifcnm(pri *a, int n, int m) {
+	if (n - m < m)m = n - m; int i;
+	//re=n!/(n-m)!
+	for (i = n - m + 1; i <= n; i++)
+		prif1(a, i, 1);
+	//re=re/m!
+	for (i = 1; i <= m; i++)
+		prif1(a, i, -1);
+	return;
+}
+//质因数表导出为大数
+void pri2lintms(pri*a, lint**temp) {
+	lint *base = NULL; lintnew(&base);
+	int i, k;
+	for (i = 0; i < a->prisize; i++)
+		if (a->priv[i]) {
+			k = a->priv[i];
+			lintresetv(base); linta(base, 1); lintm(base, a->prik[i]);
+			while (k) {
+				if (k % 2) {
+					lintms(temp, base);
+				}
+				if (k == 1)break;
+				lintm(base, base);
+				k = k / 2;
+			}
+		}
+	lintdelete(&base);
+	return;
+}
+void pri2lint(pri *a, lint *b) {
+	lint **temp = NULL; lintmsnew(&temp);
+	int TI = 0;
+	if (a->prisize >= 3 && a->priv[0]>0 && a->priv[2] > 0) {//末尾的0
+		TI = a->priv[2]; if (TI > a->priv[0])TI = a->priv[0];
+		TI = TI / 8; a->priv[0] -= TI * 8; a->priv[2] -= TI * 8;
+	}
+	pri2lintms(a, temp);
+	lintms2lint(temp, b);
+	//末尾的0
+	if (TI) lintshift(b, TI);
+	lintmsdelete(&temp);
+	return;
+}
+
+//多线程-框架
+struct thdata {
+	int thnum, thnumbackup;
+	HANDLE *lockflag = NULL;
+	int thord, thstillrun, thsync;
+	int funtype;
+	void *data;
+};
+void thfun_lintm2(void* data, int n, int N, HANDLE *lockflag);
+void thmain_lintm2(thdata *lp);
+void thfun_lintm2mat(void* data, int n, int N, HANDLE *lockflag);
+void thmain_lintm2mat(thdata *lp);
+DWORD WINAPI ththread(LPVOID lp) {
+	thdata *p = (thdata*)lp;
+	int n, N, sync = 0, syncnow;
+
+	while (1) {
+		//等待
+		while (1)
+		{
+			syncnow = p->thsync;
+			if (syncnow != sync) { sync = syncnow; break; }
+			//子线程退出
+			if (syncnow == -1) {
+				WaitForSingleObject(*p->lockflag, INFINITE);//加锁
+				p->thstillrun -= 1;
+				ReleaseMutex(*p->lockflag);//解锁
+				return 0;
+			}
+			Sleep(1);
+		}
+
+		//子线程获取编号
+		n = -1; N = p->thnum;
+		WaitForSingleObject(*p->lockflag, INFINITE);//加锁
+		if (p->thord < N) { n = p->thord; p->thord++; }
+		ReleaseMutex(*p->lockflag);//解锁
+		if (n == -1)continue;
+
+		//计算
+		switch (p->funtype)
+		{
+		case 2:thfun_lintm2(p->data, n, N, p->lockflag); break;
+		case 20:thfun_lintm2mat(p->data, n, N, p->lockflag); break;
+		default:
+			break;
+		}
+
+		//子线程表示任务已完成
+		WaitForSingleObject(*p->lockflag, INFINITE);//加锁
+		p->thstillrun -= 1;
+		ReleaseMutex(*p->lockflag);//解锁
+
+		//子线程退出
+		if (syncnow == -1)return 0;
+	}
+}
+#define thstart lp->thord = 0; lp->thstillrun = lp->thnum; lp->thsync = 1 - lp->thsync; while (lp->thstillrun)Sleep(1)
+void thmain(int funtypemain, void *data, int threadnum = 6) {
+	//静态变量
+	thdata lp0, *lp = &lp0;
+	HANDLE lockflag, *h;
+	int i;
+
+	//线程创建
+	lp->thnum = threadnum; 
+	lp->thnumbackup = lp->thnum;
+	lp->thsync = 0;
+	lockflag = CreateMutexW(NULL, FALSE, NULL);
+	lp->lockflag = &lockflag;
+	h = new HANDLE[lp->thnum];
+	for (i = 0; i < lp->thnum; i++)
+		h[i] = CreateThread(NULL, 0, ththread, lp, 0, NULL);
+
+	//任务
+	lp->funtype = funtypemain; lp->data = data;
+	switch (lp->funtype)
+	{
+	case 2:thmain_lintm2(lp); break;
+	case 20:thmain_lintm2mat(lp); break;
+	default:
+		break;
+	}
+
+	//线程结束
+	lp->thstillrun = threadnum;
+	lp->thsync = -1;
+	while (lp->thstillrun)Sleep(1);
+	for (i = 0; i < threadnum; i++)if (h[i])CloseHandle(h[i]);
+	delete[]h;
+
+	return;
+}
+
+//多线程-FFT（已放弃）
+struct thread_lintm2data {
+	int funtype;
+	lint *x, *y;
+	int *rev;
+	comp *a;
+	int size, powbase2, digit;
+	int fla, i;
+};
+void thfun_lintm2_revandfftscan(void* data, int n, int N) {
+	//传值
+	thread_lintm2data *p = (thread_lintm2data *)data;
+	int *rev = p->rev;
+	int size = p->size;
+	int powbase2 = p->powbase2;
+	int len, start, end, i, j, temp, e1, s1;
+	comp *a = p->a; lint *x = p->x, *y = p->y;
+	size = p->size / 8;
+	//分割
+	len = size / N;
+	start = len*n; end = len*(n + 1);
+	if (n + 1 == N)end = size;
+	//计算（被乘数与乘数传入时域序列）
+	for (i = start * 8; i < end * 8; i++) { a[i].x = 0; a[i].y = 0; }
+
+	e1 = end; if (e1 > x->len)e1 = x->len;
+	for (i = start; i < e1; i++) {
+		temp = x->v[i];
+		j = 0; while (temp > 0) {
+			a[i * 8 + j].x = temp % 10;
+			temp /= 10;
+			j++;
+		}
+	}
+	e1 = end; if (e1 > y->len)e1 = y->len;
+	for (i = start; i < y->len; i++) {
+		temp = y->v[i];
+		j = 0; while (temp > 0) {
+			a[i * 8 + j].y = temp % 10;
+			temp /= 10;
+			j++;
+		}
+	}
+	return;
+}
+void thfun_lintm2_fft2of3(void* data, int n, int N) {
+	//传值
+	thread_lintm2data *p = (thread_lintm2data *)data;
+	int step, len, start, end, start1, start1k, end1, end1k, i, j, k, fla;
+	double temp; comp w, x, y, K;
+	comp*a = p->a;
+	int size = p->size;
+	i = p->i; fla = p->fla;
+
+	//分割
+	step = i * 2; len = size / 2 / N; start = len*n; end = start + len;
+	if (n + 1 == N)end = size / 2;
+	start1k = start; end1k = end;
+	start1 = start % i; start /= i;
+	end1 = (end - 1) % i + 1; end = (end - 1) / i + 1;
+	start *= step; end *= step;
+	if (n + 1 == N)end1 = i;
+
+	//计算
+	w = { cos(pi / i), fla*sin(pi / i) };
+	for (j = start; j < end; j += step) {
+		K = { 1,0 };
+		start1k = 0; end1k = i;
+		if (j == start) {
+			start1k = start1;
+			K = { cos(pi*start1 / i),fla*sin(pi*start1 / i) };
+		}
+		if (j == end - step)end1k = end1;
+		for (k = start1k; k < end1k; k++) {
+			comuti(&K, w, temp); x = a[j + k]; y = a[j + k + i]; comuti(&y, K, temp);
+			a[j + k] = x; coadd(a + j + k, &y);
+			a[j + k + i] = x; cosub(a + j + k + i, &y);
+		}
+	}
+	return;
+}
+void thfun_lintm2_fft2lint(void* data, int n, int N, HANDLE *lockflag) {
+	//传值
+	thread_lintm2data *p = (thread_lintm2data *)data;
+	int len, start, end, i;long long temp;
+	comp*a = p->a;
+	lint*x = p->x;
+	int size = p->size;
+	//分割
+	len = size / N;
+	start = len*n; end = len*(n + 1);
+	if (n + 1 == N)end = size;
+	//计算
+	lint *dest = NULL;
+	lintnew(&dest); lintchecksize(dest, size / 8);
+	for (i = start; i < end; i++) {
+		temp = (long long)(a[i].x + 0.49);
+		lintafast(dest, temp, i / 8, i % 8);
+	}
+	dest->len = dest->size - 1;
+	while (dest->len >= 0 && dest->v[dest->len] == 0)dest->len--;
+	dest->len++;
+	//传值
+	WaitForSingleObject(*lockflag, INFINITE);//加锁
+	linta(p->x, dest);
+	ReleaseMutex(*lockflag);//解锁
+
+	lintdelete(&dest);
+	return;
+}
+void thfun_lintm2(void* data, int n, int N, HANDLE *lockflag) {
+	//传值
+	thread_lintm2data *p = (thread_lintm2data *)data;
+	int len, start, end, i; double temp; comp tempc;
+	int*rev = p->rev;
+	comp*a = p->a;
+	int size = p->size;
+
+	//分割
+	len = size / N;
+	start = len*n; end = len*(n + 1);
+	if (n + 1 == N)end = size;
+
+	//计算
+	switch (p->funtype)
+	{
+		//传值
+	case 1:thfun_lintm2_revandfftscan(data, n, N); break;
+		//fft倒序位
+	case 2:for (i = start; i < end; i++)if (i < rev[i])
+		coswap(a + i, a + rev[i], temp); break;
+		//fft蝶形图
+	case 3:thfun_lintm2_fft2of3(data, n, N); break;
+		//fft倒序
+	case 4:for (i = start / 2; i < end / 2; i++)
+		coswap(a+i, a+size - i - 1, temp); break;
+		//频域序列乘法
+	case 5:for (i = start; i < end; i++)
+		comuti(a + i, a[i], temp); break;
+		//ifft归一化
+	case 6:for (i = start; i < end; i++)
+		a[i].x = a[i].y / size / 2; break;
+		//传值
+	case 7:thfun_lintm2_fft2lint(data, n, N, lockflag); break;
+
+	default:
+		break;
+	}
+	return;
+}
+void thmain_lintm2_revandfftscan(thdata *lp, thread_lintm2data *m) {
+	//确定尺寸
+	int s, len, i, tim;
+	s = 1; len = (m->x->len + m->y->len) * 8; tim = 0;
+	while (s < len) { s <<= 1; tim++; }
+	m->powbase2 = tim; m->size = s;
+	//生成倒序位
+	m->rev = new int[s]; int*rev = m->rev;
+	for (i = 0; i < s; i++)m->rev[i] = 0;
+	for (i = 0; i < s; i++)rev[i] = (rev[i >> 1] >> 1) | ((i & 1) << (tim - 1));
+	//被乘数与乘数传入点值表示
+	m->a = new comp[s];
+	m->funtype = 1;
+	thstart; return;
+}
+void thmain_lintm2_fft(thdata *lp, thread_lintm2data *m) {
+	//倒序位
+	m->funtype = 2;
+	thstart;
+	//fft
+	for (int i = 1; i < m->size; i <<= 1) {
+		m->i = i;
+		m->funtype = 3;
+		thstart;
+	}
+	//倒序
+	m->funtype = 4;
+	thstart; return;
+}
+void thmain_lintm2_fft2lint(thdata *lp, thread_lintm2data *m) {
+	//清零
+	lintresetv(m->x);
+	lintchecksize(m->x, m->size / 8);
+	//点值表示转化为大数表示
+	m->funtype = 7;
+	thstart; 
+	//回收空间
+	delete[]m->rev; delete[]m->a; return;
+}
+void thmain_lintm2(thdata *lp) {
+	//数据
+	thread_lintm2data *m = (thread_lintm2data *)lp->data;
+	//传值
+	thmain_lintm2_revandfftscan(lp, m);
+	//fft
+	m->fla = 1; thmain_lintm2_fft(lp, m);
+	//频域序列乘法
+	m->funtype = 5; thstart;
+	//ifft
+	m->fla = -1; thmain_lintm2_fft(lp, m);
+	//ifft归一化
+	m->funtype = 6; thstart;
+	//传值
+	thmain_lintm2_fft2lint(lp, m);
+	
+	return;
+}
+void lintm2_mutithread(lint *x, lint *y, int threadnum) {
+	thread_lintm2data d;
+	d.x = x; d.y = y;
+	thmain(2, &d, threadnum);
+	return;
+}
+
+//多线程-二维FFT
+struct thread_lintm2matdata {
+	int funtype;
+	lint *x, *y;
+	int *rev;
+	comat *ma;
+	comat *mb;
+	int digit;
+	int fla;
+};
+void thfun_lintm2mat_scan(void* data, int n, int N, HANDLE *lockflag) {
+	//传值
+	thread_lintm2matdata *p = (thread_lintm2matdata *)data;
+	comat*ma = p->ma; int digit = p->digit;
+	lint *x = p->x, *y = p->y;
+	int i, j, tempi, p10[9] = { 1,10,100,1000,10000,1e5,1e6,1e7,1e8 }, p10d = p10[digit];
+	long long temp; comp*a;
+	int r, size = ma->size;
+	//分解
+	int len, start, end;
+	len = size / N;
+	start = len*n; end = len*(n + 1);
+	if (n + 1 == N)end = size;
+	//执行
+	j = start*size*digit; i = j / 8; j -= i * 8;
+	temp = 0; tempi = 0;
+	if (i < x->len) { temp = x->v[i] / p10[j]; tempi = 8 - j; }
+	i++; j = 0;
+	r = start; a = ma->v[r];
+	while (1) {
+		if (tempi < digit&&i < x->len) {
+			temp += x->v[i] * (long long)1 * p10[tempi]; i++; tempi += 8;
+		}
+		a[j].x = temp%p10d; j++;
+		if (j >= size) { j = 0; r++; a = ma->v[r]; if (r >= end)break; }
+		temp /= p10d; tempi -= digit;
+		if (tempi <= 0 && i >= x->len)break;
+	}
+
+	j = start*size*digit; i = j / 8; j -= i * 8;
+	temp = 0; tempi = 0;
+	if (i < y->len) { temp = y->v[i] / p10[j]; tempi = 8 - j; }
+	i++; j = 0;
+	r = start; a = ma->v[r];
+	while (1) {
+		if (tempi < digit&&i < y->len) {
+			temp += y->v[i] * (long long)1 * p10[tempi]; i++; tempi += 8;
+		}
+		a[j].y = temp%p10d; j++;
+		if (j >= size) { j = 0; r++; a = ma->v[r]; if (r >= end)break; }
+		temp /= p10d; tempi -= digit;
+		if (tempi <= 0 && i >= y->len)break;
+	}
+
+	return;
+}
+void thfun_lintm2mat_fft2lint(void* data, int n, int N, HANDLE *lockflag) {
+	//传值
+	thread_lintm2matdata *p = (thread_lintm2matdata *)data;
+	int len, start, end, i, j, k;
+	comat *ma = p->ma;
+	int size = ma->size;
+	int digit = p->digit;
+	//分割
+	len = size*size / N;
+	start = len*n; end = len*(n + 1);
+	if (n + 1 == N)end = size*size;
+	//偏移量
+	i = start*digit;
+	int offsetA = i / 8, offsetB = i % 8;
+	//计算
+	lint *x = NULL;
+	comp**av = ma->v;
+	unsigned long long temp2; int tempcount = 0;
+	lintnew(&x);
+	lintchecksize(x, len*digit / 8 + 6);
+	for (k = start; k < end; k++) {
+		i = k / size; j = k%size;
+		temp2 = (unsigned long long)(av[i][j].x + 0.4999);
+		tempcount = (k - start)*digit + offsetB;
+		if (temp2)lintafast(x, temp2, tempcount / 8, tempcount % 8);
+	}
+	while (x->v[x->len - 1] == 0)x->len--;
+	//传值
+	WaitForSingleObject(*lockflag, INFINITE);//加锁
+	linta(p->x, x, offsetA);
+	ReleaseMutex(*lockflag);//解锁
+
+	lintdelete(&x);
+	return;
+}
+void thfun_lintm2mat(void* data, int n, int N, HANDLE *lockflag) {
+	//传值
+	thread_lintm2matdata *p = (thread_lintm2matdata *)data;
+	int len, start, end, i;
+	comat *ma = p->ma;
+	int size = ma->size;
+
+	//分割
+	len = size / N;
+	start = len*n; end = len*(n + 1);
+	if (n + 1 == N)end = size;
+
+	//计算
+	int j, size2 = size*size; comp*v = NULL, **av = ma->v, **bv = NULL, K;
+	double temp;
+	switch (p->funtype)
+	{
+		//传值
+	case 1:
+		thfun_lintm2mat_scan(data, n, N, lockflag);
+		break;
+		//列变换
+	case 2:
+		v = new comp[size];
+		for (i = start; i < end; i++) {
+			for (j = 0; j < size; j++)v[j] = av[j][i];
+			lintm2_FFT(v, p->fla, p->rev, size);
+			for (j = 0; j < size; j++)av[j][i] = v[j];
+		} delete[]v;
+		break;
+		//行变换
+	case 3:
+		for (i = start; i < end; i++)
+			lintm2_FFT(av[i], p->fla, p->rev, size);
+		break;
+		//单位根复乘
+	case 4:
+		for (i = start; i < end; i++) {
+			for (j = 0; j < size; j++) {
+				K = { cos(pi * 2 * i*j / size2), -p->fla*sin(pi * 2 * i*j / size2) };
+				comuti(av[i] + j, K, temp);
+			}
+		}break;
+		//矩阵转置
+	case 5:
+		bv = p->mb->v;
+		for (i = start; i < end; i++) {
+			for (j = 0; j < size; j++)
+				bv[j][i] = av[i][j];
+			delete[]av[i]; av[i] = NULL;
+		}
+		break;
+		//序列自乘
+	case 6:
+		for (i = start; i < end; i++)
+			for (j = 0; j < size; j++)
+				comuti(av[i] + j, av[i][j], temp);
+		break;
+		//虚部转换
+	case 7:
+		for (i = start; i < end; i++)
+			for (j = 0; j < size; j++)
+				av[i][j].x = av[i][j].y / 2;
+		break;
+		//传值
+	case 8:
+		thfun_lintm2mat_fft2lint(data, n, N, lockflag); break;
+	default:
+		break;
+	}
+	return;
+}
+void thmain_lintm2mat_FFT(thdata *lp) {
+	thread_lintm2matdata *p = (thread_lintm2matdata*)lp->data;
+
+	if (p->fla == 1) {
+		//列变换
+		p->funtype = 2;
+		thstart;
+		//数乘单位根
+		p->funtype = 4;
+		thstart;
+		//行变换
+		p->funtype = 3;
+		thstart;
+	}
+	else {
+		//行变换
+		p->funtype = 3;
+		thstart;
+		//数乘单位根
+		p->funtype = 4;
+		thstart;
+		//列变换
+		p->funtype = 2;
+		thstart;
+	}
+	return;
+}
+void thmain_lintm2mat(thdata *lp) {
+	thread_lintm2matdata *p = (thread_lintm2matdata*)lp->data;
+	int i, j;
+	lint*x = p->x, *y = p->y;
+
+	i = x->len + y->len;
+	i = i * 4;
+	int digit = 3;
+	if (i <= 6117000)digit = 4;
+	if (i <= 40952)digit = 5;
+	if (i <= 3064)digit = 6;
+	if (i <= 80)digit = 7;
+	p->digit = digit;
+	i = x->len + y->len;
+
+	//倒序位
+	int *rev = NULL;
+	i = i * 8 / digit + 1;
+	int size = 1; while (size*size < i)size *= 2;
+	lintm2_rev(&rev, &size, size);
+	p->rev = rev;
+
+	//a,b传值
+	comat*ma = NULL; comatnew(&ma, size);
+	p->ma = ma;
+	p->funtype = 1;
+	thstart;
+
+	//正变换-序列乘法-反变换
+	p->fla = 1;
+	thmain_lintm2mat_FFT(lp);
+
+	p->funtype = 6;
+	thstart;
+
+	p->fla = -1;
+	thmain_lintm2mat_FFT(lp);
+
+	//传值
+	delete[]rev;
+	p->funtype = 7;
+	thstart;
+
+	//x 传值
+	lintresetv(x);
+	lintchecksize(x, size*size*digit / 8 + 1);
+	p->x = x;
+
+	p->funtype = 8;
+	thstart;
+
+	//回收空间
+	comatdelete(&ma);
+	//delete[]rev; //此代码已移动到更早的时候
+	return;
+}
+void lintm2mat_mutithread(lint *x, lint *y, int threadnuma) {
+	thread_lintm2matdata d;
+	d.x = x; d.y = y;
+	thmain(20, &d, threadnuma);
+	return;
+}
+
+//计算n!的位数
+int calfactdig(int s, int eplus1);
+int calfactdig(int s, int eplus1) {
+	double dig = 0;
+	for (int i = s; i < eplus1; i++)dig += log10(1.0*i);
+	return (int)(floor(dig + 0.00001) + 1);
+}
+
+//二分+快速幂+多线程 demo
+
+struct mlint {
+	lint **mtemp = NULL;
+	pri *p = NULL;
+	HANDLE *lockflag = NULL;
+	int workleft;
+	int threadstillrun;
+	int workload_max;
+};
+void mlintnewandreset(mlint *m, int nplus1, int threadnum) {
+	//new
+	if (m->mtemp == NULL)lintmsnew(&m->mtemp);
+	if (m->p == NULL)prinewandset(&m->p, 0);
+	//reset
+	lintmsresetv(m->mtemp);
+	pridelete(m->p); prinewandset(m->p, nplus1); priffact(m->p, nplus1 - 1);
+	m->workleft = m->p->prisize;
+	m->threadstillrun = threadnum;
+	m->workload_max = calfactdig(1, nplus1) / threadnum + 1;
+	return;
+}
+void mlintdelete(mlint *m) {
+	for (int i = 0; i < lintmslen; i++)lintdelete(m->mtemp + i);
+	delete[]m->mtemp; m->mtemp = NULL;
+	pridelete(m->p);
+};
+void mlintdelete(mlint **mp) {
+	mlintdelete(*mp);
+	delete *mp;
+}
+void mlintassign_pri(pri*dest, pri*p, int eplus1, int digmax) {
+	int i; double dig = 0;
+	if (eplus1 == 0) { priresetv(dest); return; }
+	for (i = eplus1 - 1; i >= 0; i--) {
+		dig += log10(1.0*p->prik[i])*(p->priv[i]);
+		if (dig + 0.00001 >= digmax)break;
+	}
+	if (i == -1)i = 0;
+	int s = i;
+	pricopy(dest, p, s, &eplus1);
+	return;
+}
+
+DWORD WINAPI threadmain(LPVOID vp) {
+	mlint *m = NULL; m = (mlint*)vp;
+	lint **temp = NULL; lintmsnew(&temp);
+	lint *a = NULL; lintnew(&a); linta(a, 1);
+	pri *p = NULL; prinewandset(&p, 3);
+	int eplus1;
+	while (1) {
+
+		WaitForSingleObject(*m->lockflag, INFINITE);//加锁
+		lintms(m->mtemp, a);//合并计算结果
+		if (m->workleft <= 0) { m->threadstillrun -= 1; ReleaseMutex(*m->lockflag); break; }//跳出循环
+		eplus1 = m->workleft; mlintassign_pri(p, m->p, eplus1, m->workload_max); m->workleft -= p->prisize;//分配任务
+		ReleaseMutex(*m->lockflag);//解锁
+
+		//运算
+		lintmsresetv(temp);
+		pri2lintms(p, temp);
+		lintresetv(a); linta(a, 1); lintms2lint(temp, a);
+	}
+	//释放空间
+	lintmsdelete(&temp);
+	lintdelete(&a);
+	pridelete(&p);
+	return 0;
+}
+
+int main() {
+	mlint m; int n, n2; lint *a = NULL;
+	HANDLE *h = NULL; DWORD *dwid = NULL;
+	HANDLE lockflag;																time_t s, e1, e2, e3;
+	lintnew(&a);
+	printf("减少输出答案消耗的时间：数字窗口缓冲区长度9999、宽度9999，取消按窗口宽度自动换行。\n");
+	while (1) {
+
+		printf("\n  输入n并回车计算n!(n<=1000万):");
+		scanf("%d", &n); n2 = 6;//线程数
+		if (n > 1000000)printf("100万以上的阶乘 计算时间可能超过10秒\n");
+																					s = clock();
+		mlintnewandreset(&m, n + 1, n2);
+		h = new HANDLE[m.threadstillrun]; dwid = new DWORD[m.threadstillrun];
+		//多线程资源锁
+		lockflag = CreateMutexW(NULL, FALSE, NULL);
+		m.lockflag = &lockflag;
+		//线程
+		for (int i = 0; i < m.threadstillrun; i++)
+			h[i] = CreateThread(NULL, 0, threadmain, &m, 0, dwid + i);
+		//等待线程全部结束
+		while (m.threadstillrun)Sleep(1);
+
+		for (int i = 0; i < m.threadstillrun; i++)
+			if (h[i])CloseHandle(h[i]);
+																					e1 = clock();
+		linta(a, 1);
+		lintms2lint(m.mtemp, a);
+																					e2 = clock();
+		lintprintf(a);
+		lintresetv(a);
+		delete[]h; delete[]dwid;
+																					e3 = clock();
+		printf("使用log验算n!的位数:%d\n", calfactdig(1, n + 1));//阶乘的位数
+		printf("多线程计算：%lldms(%d线程) | 收尾：%lldms(+%lld) | 打印结果：%lldms(+%lld)\n"
+			, (long long)(e1 - s), n2
+			, (long long)(e2 - s), (long long)(e2 - e1), (long long)(e3 - s), (long long)(e3 - e2));
+
+	}
+	lintdelete(&a); mlintdelete(&m);
+	return 0;
+}
+//如果有错误或有优化建议，欢迎提出。我暂时不想折腾了
+//默认6线程，但你可以花一些时间修改
