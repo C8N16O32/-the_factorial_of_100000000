@@ -1,0 +1,527 @@
+//打印
+
+//void printfmain302(lint**temp, int num) {
+//	printf("%d", num);
+//	for (int i = 0; i < 6; i++) {
+//		printf("\t"); lintprintfstrlen(temp[i]);
+//	}
+//	for (int i = 0; i < 6; i++) {
+//		printf("\t"); lintprintfvalue(temp[i]);
+//	}
+//	printf("\n"); return;
+//}
+//void printfmain303(lint**temp, lint*a, int base, int k) {
+//	static int baseold = 1, pow = 1, powold = 1, powprocess = 0;
+//	if (baseold < base) { baseold = base; pow = 1; powold = k; powprocess = 0; }
+//	else pow *= 2;
+//	powprocess += pow*(k % 2);
+//	printf("%d\t%d\t%d\t%d\t%d\t", baseold, powold, k % 2, powprocess, pow);
+//	if (k % 2) {
+//		lintprintfvalue(a);
+//		for (int i = 0; i < lintmslen; i++) {
+//			printf("\t"); lintprintfstrlen(temp[i]);
+//		}
+//		for (int i = 0; i < 4; i++) {
+//			printf("\t"); lintprintfvalue(temp[i]);
+//		}
+//	}
+//	printf("\n"); return;
+//}
+//void printfmain30prik(pri*p,int size,int i) {
+//	printf("%d", i);
+//	for (int j = 0; j < size; j++)
+//		printf("\t%d", p->priflag[j]);
+//	printf("\n");
+//	return;
+//}
+//void printfmain30prif(int n, int wide, int*temp, int size) {
+//	printf("\t%d", n);
+//	for (int i = n - wide; i <= n + wide; i++)
+//		if (i < 0 || i >= size)printf("\t0");
+//		else printf("\t%d", temp[i]);
+//		return;
+//}
+//void printfmain30pri(int num, pri*a) {
+//	int priord = 0, numold = num;
+//	//分解质因数
+//	while (num > 1) {
+//		printf("%d", numold);
+//		printfmain30prif(num, 3, a->priflag, 100000000);
+//		priord = a->priflag[num] - 1;
+//		printfmain30prif(priord, 3, a->prik, a->prisize);
+//		a->priv[priord] += 1;
+//		printfmain30prif(priord, 3, a->priv, a->prisize);
+//		num /= a->prik[priord];
+//		printf("\n");
+//	}
+//}
+//
+
+//直接累乘 demo
+
+//int main() {
+//	int i; time_t s, e1, e;
+//	lint *a = NULL; lintnew(&a);
+//	int n = 1;
+//	while (1) {
+//		scanf("%d", &n);
+//		s = clock();
+//		linta(a, 1);
+//		if (n < 1)n = 1;
+//		for (i = 1; i <= n; i++) {
+//			lintm(a, i);
+//		}
+//		e1 = clock();
+//		lintprintf(a);
+//		lintresetv(a);
+//		lintchecksize(a, 0);
+//		e = clock(); printf("%dms | %dms(+%d)\n", (int)(e1 - s), (int)(e - s), (int)(e - e1));
+//	}
+//	lintdelete(&a);
+//	return 0;
+//}
+
+//二分乘法 demo
+
+//int main() {
+//	int i; time_t s, e1, e;
+//	lint *a = NULL; lintnew(&a); linta(a, 1);
+//	lint **temp = NULL;
+//	int n = 1;
+//	while (1) {
+//		scanf("%d", &n);
+//		s = clock();
+//		lintmsnew(&temp);
+//		if (n < 1)n = 1;
+//		for (i = 1; i <= n; i++) {
+//			lintms(temp, i);
+//		}
+//		lintms2lint(temp, a);
+//		e1 = clock();
+//		lintprintf(a);
+//		lintresetv(a); linta(a, 1);
+//		lintmsdelete(&temp);
+//		e = clock(); printf("%dms | %dms(+%d)\n", (int)(e1 - s), (int)(e - s), (int)(e - e1));
+//	}
+//	lintdelete(&a);
+//	return 0;
+//}
+
+//二分+快速幂 demo
+
+//int main() {
+//	time_t s, e1, e;
+//	lint *a = NULL; lintnew(&a); linta(a, 1);
+//	pri *p = NULL;
+//	int n = 1;
+//	while (1) {
+//		scanf("%d", &n);
+//		s = clock();
+//		if (n < 1)n = 1;
+//
+//		switch (1)
+//		{
+//		case 1://计算n!
+//		prinewandset(&p, n + 1);
+//		priffact(p, n, 1); break;
+//		case 2://计算2^n
+//		prinewandset(p, 3);
+//		prif1(p, 2, n); break;
+//		default:
+//			break;
+//		}
+//
+//		pri2lint(p, a);
+//		e1 = clock();
+//		lintprintf(a);
+//		printf("使用log计算n!的位数:%d\n", calfactdig(1, n + 1));//阶乘的位数
+//		lintresetv(a); 
+//		linta(a, 1);
+//		pridelete(p);
+//		e = clock(); printf("%dms | %dms(+%d)\n", (int)(e1 - s), (int)(e - s), (int)(e - e1));
+//	}
+//	lintdelete(&a);
+//	return 0;
+//}
+
+//int main() {
+//	int i, n;
+//	time_t s, e1, e2, e3, e4;
+//	struct lint *a = NULL; struct pri *p = NULL;
+//	lintnew(&a);
+//
+//	while (1) {
+//		
+//		printf("输入n (0<n<=1亿) 计算n！:");				//时间
+//		scanf("%d", &n);										s = clock();
+//		if (n < 1)n = 1;
+//
+//		switch (1)
+//		{
+//		case 1:
+//			prinewandset(&p, n + 1);							e1 = clock() - s;
+//			priffact(p, n, 1);									e2 = clock() - s;
+//			break;
+//		case 2:
+//			prinewandset(&p, 3);								e1 = clock() - s;
+//			prif1(p, 2, n);										e2 = clock() - s;
+//			break;
+//		default:
+//			break;
+//		}
+//
+//		linta(a, 1); pri2lint(p, a);							e3 = clock() - s;
+//
+//		//打印
+//		lintprintf(a);
+//		pridelete(p);
+//		lintresetv(a); lintchecksize(a, 0);						e4 = clock() - s;
+//		//统计信息
+//		printf("\n    %lldms 筛质数    |    %lldms(+%lld) 分解质因数    |    %lldms(+%lld) 运算    |    %lldms(+%lld) 打印\n", (long long)e1
+//			, (long long)e2, (long long)(e2 - e1)
+//			, (long long)e3, (long long)(e3 - e2)
+//			, (long long)e4, (long long)(e4 - e3));
+//	}
+//
+//	lintdelete(&a);
+//	return 0;
+//}
+
+//fft 线程-耗时测试
+
+//int main() {
+//	lint*a; lintnew(&a);
+//	time_t s, e;
+//	int i, i2, I = 9, I2 = 9, j, o, n;
+//	int list1[] = { 10,20,50,100,200,500,1000,2000,5000 }, list2[] = { 1,2,3,4,6,8,12,16,24 };
+//	while (1) {
+//		scanf("%d", &o);
+//		for (i = 0; i < I; i++) {
+//			for (i2 = 0; i2 < I2; i2++) {
+//				o = list1[i] * 10000; n = list2[i2];
+//				printf("计算规模%d 线程数%d   \t\t ", o, n);
+//				lintresetv(a);
+//				j = (o - 1) / 8; linta(a, 99999999, j);
+//				for (j = 0; j < (o - 1) / 8; j++)
+//					a->v[j] = 99999999;
+//				s = clock();
+//				if (n == 1)lintm2(a, a);
+//				else lintm2mat_mutithread(a, a, n);
+//				e = clock(); printf("耗时(含创建线程)%dms\n", (int)(e - s));
+//			}
+//			printf("\n");
+//		}
+//	}
+//	lintprintfstrlen(a);
+//	lintdelete(&a);
+//}
+
+//fft 压位-准确性测试
+
+//int main() {
+//	lint*a; lintnew(&a);
+//	lint*base; lintnew(&base);
+//	lint*temp; lintnew(&temp);
+//	int i, j, k, d = 3, o, oold = -1, ot = 1;
+//	switch (1)
+//	{
+//	case 1:while (1) {
+//		scanf("%d %d", &o, &d);
+//		if (oold != o) {
+//			oold = o;
+//			lintresetv(a);
+//			lintsetnum(a, o, 9);
+//			lintcopy(base, a);
+//			lintcopy(temp, a);
+//			lintm2(temp, base);
+//		}
+//		lintresetv(a); lintcopy(a, base);
+//		lintm2(a, a, d);
+//		printf("\no: %d   d: %d   对比: %d   ", o / ot, d, lintcmp(temp, a));
+//		lintprintfstrlen(temp);
+//		printf("   ");
+//		lintprintfstrlen(a);
+//		printf("   ");
+//		lintprintfvalue(a);
+//		printf("\n\n");
+//	}
+//		   break;
+//	case 2:
+//		int olist[19] = { 393224, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 }, oll = 19;
+//		for (i = 0; i < 1; i++) {
+//			o = olist[i] * ot;
+//			if (oold != o) {
+//				oold = o;
+//				lintresetv(a);
+//				lintsetnum(a, o, 9);
+//				lintcopy(base, a);
+//				lintcopy(temp, a);
+//				lintm2(temp, base);
+//			}
+//			lintresetv(a); lintcopy(a, base);
+//			lintm2mat_mutithread(a, a, d);
+//			printf("o: %d   d: %d   对比: %d   ", o / ot, d, lintcmp(temp, a));
+//			lintprintfstrlen(temp);
+//			printf("   ");
+//			lintprintfstrlen(a);
+//			printf("   ");
+//			lintprintfvalue(a);
+//			printf("\n");
+//		}
+//		break;
+//	}
+//
+//	lintdelete(&a);
+//	lintdelete(&base);
+//	lintdelete(&temp);
+//}
+
+//二维fft 耗时测试
+
+//int main() {
+//	time_t s, e;
+//	int n = 1, thn = 16, size = 256 * 64, size2 = size*size, len = size2/3*2, v = 9;
+//	//测试数据：int n = 1, thn = 1, size = 256 * 16, size2 = size*size, len = 10000, v = 9;
+//	//32位 debug 矩阵fft9.4秒 常规fft7.5秒    32位 release 矩阵fft2.1秒 常规fft1.1秒    申请空间等操作耗时不显著
+//	lint *x = NULL, *y = NULL; 
+//	int*rev = NULL; comp*a = NULL; comat *ma = NULL;
+//	switch (2)
+//	{
+//	case 1:
+//		lintnew(&x); lintnew(&y);
+//		lintsetnum(y, len, v);
+//
+//		printf("规模%d/%d 次数%d 线程数%d\t", len, size2, n, thn);
+//
+//		lintcopy(x, y);
+//		lintm2_rev(&rev, &size, size);
+//		comatnew(&ma, size);
+//		s = clock();
+//		for (int i = 0; i < n; i++) {
+//			for (int m = 0; m < size; m++)
+//				for (int n = 0; n < size; n++)
+//					ma->v[m][n] = { 0,0 };
+//			lintm2mat_scan(ma, x, x, 2);
+//			lintm2mat_FFT_mutithread(ma, 1, rev, size, thn);
+//		}
+//		e = clock();
+//		comatdelete(&ma);
+//		delete[]rev;
+//		printf("矩阵fft： 平均耗时%dms\t", (int)((long long)(e - s) / n));
+//
+//		lintcopy(x, y);
+//		lintm2_rev(&rev, &size, size2);
+//		a = new comp[size2];
+//		s = clock();
+//		for (int i = 0; i < n; i++) {
+//			for (i = 0; i < size2; i++)a[i] = { 0,0 };
+//			lintm2_scan(a, x, x, 2);
+//			lintm2_FFT(a, 1, rev, size);
+//		}
+//		e = clock();
+//		delete[]a;
+//		delete[]rev;
+//		printf("常规fft： 平均耗时%dms\n", (int)((long long)(e - s) / n));
+//
+//		lintdelete(&x); lintdelete(&y);
+//		break;
+//
+//	case 2:
+//		int thi, thlist[] = { 1,2,3,4,6,8,12,16,24,32,64,128 }, thlen = 12;
+//		int sizei, sizelist[] = { 256 * 32,256 * 16,256 * 8,256 * 4,256 * 2,256,64,16 } , sizelen = 8, sizeold = -1;
+//		lintnew(&x); lintnew(&y);
+//		for (sizei = 0; sizei < sizelen; sizei++)
+//			for (thi = 0; thi < thlen; thi++) {
+//				thn = thlist[thi]; size = sizelist[sizei];
+//				if (sizeold != size) {
+//					size2 = size*size; len = size2 / 3 * 2;
+//					lintresetv(x); lintresetv(y);
+//					lintsetnum(y, len, v);
+//				}
+//
+//			printf("规模%d/%d 次数%d 线程数%d\t", len, size2, n, thn);
+//
+//			lintcopy(x, y);
+//			lintm2_rev(&rev, &size, size);
+//			comatnew(&ma, size);
+//			s = clock();
+//			for (int i = 0; i < n; i++) {
+//				for (int m = 0; m < size; m++)
+//					for (int n = 0; n < size; n++)
+//						ma->v[m][n] = { 0,0 };
+//				lintm2mat_scan(ma, x, x, 2);
+//				lintm2mat_FFT_mutithread(ma, 1, rev, size, thn);
+//			}
+//			e = clock();
+//			comatdelete(&ma);
+//			delete[]rev;
+//			printf("矩阵fft： 平均耗时%dms\t", (int)((long long)(e - s) / n));
+//
+//			if (thn > 1) { printf("\n"); continue; }
+//			lintcopy(x, y);
+//			lintm2_rev(&rev, &size, size2);
+//			a = new comp[size2];
+//			s = clock();
+//			for (int i = 0; i < n; i++) {
+//				for (i = 0; i < size2; i++)a[i] = { 0,0 };
+//				lintm2_scan(a, x, x, 2);
+//				lintm2_FFT(a, 1, rev, size);
+//			}
+//			e = clock();
+//			delete[]a;
+//			delete[]rev;
+//			printf("常规fft： 平均耗时%dms\n", (int)((long long)(e - s) / n));
+//
+//		}
+//		lintdelete(&x); lintdelete(&y);
+//	}
+//	//停住
+//	scanf("%d", &n);
+//	return 0;
+//}
+
+//线程池 demo
+
+/*
+
+需要实现的功能 简述：线程池相关：new delete submit get 线程池内部：fork join
+forkjoin架构：
+	new
+		功能：创建forkjoinpool（其中workqueue保存任务队列）
+		参数：parallelism（并行执行的数量），factory（创建一个forkjointask的方法），handler（异常处理），asyncmode（进队方法，默认false 后进先出，否则先进先出）
+	submit
+		将一个任务加入任务队列
+		需要当场返回一个信息 供下面的get使用
+		输入参数：方法与数据
+			方法里要主动编写含有fork与join的内容，主动创建更细分的任务
+		fork: 与submit类似，只需要方法与数据 将细分的新任务加入队列
+			需要当场返回一个信息 供下面的join使用
+		join: 开始监听返回值 在得到返回值之前进入等待
+	get：类似join: 开始监听返回值 在得到返回值之前进入等待
+
+	invoke/invokeall(属于execute)
+		将一个任务或多个任务加入任务队列，但自己不停下等待返回值
+
+	workqueue：双端队列，支持线程窃取
+	
+	任务管理线程与监听中的线程：均使用指定的某一个cpu核心
+
+*/
+//
+//struct work {
+//	//输入参数
+//	void *fun = NULL;
+//	void *data = NULL;
+//	//互斥量
+//	int owner;//任务拥有者的id -1表示此任务正在被创建或者正在被删除 0~n-1表示拥有者
+//	//作为父任务
+//	int pausepoint;//中断位置 从后往前递增 0表示程序完全结束 否则表示在某位置中断
+//	int *wnum = NULL;//分发量
+//	int *wdone = NULL;//完成量
+//	//作为子任务
+//	int depth;//任务深度 最低为0 逐渐递增
+//	work *father = NULL;//父线程地址
+//	//任务双端队列
+//	work *pre = NULL;
+//	work *next = NULL;
+//};
+//struct thread {
+//	int thid;//线程id 0~n-1
+//	HANDLE *thhandle = NULL;//线程句柄
+//	int stopflag;//退出标志 1表示退出
+//	//任务
+//	work *curwork = NULL;
+//	work *head = NULL;//任务列表：双端队列
+//	work *end = NULL;
+//	//线程链表
+//	thread *next = NULL;
+//	//线程池
+//	thpool *back = NULL;
+//};
+//struct thpool {
+//	int thnum;//最大允许并行数
+//	int queuemode;//任务队列模式：0表示后进先出 1表示先进先出
+//	thread *head = NULL;//线程列表：链表
+//};
+////灵感：手写上下文切换。各线程直接按队列工作 新任务直接抛入队列首 fifofilo没有区别 新任务至少有一个由自己负责 队列设立三个节点 队首 活区首 队尾
+////steal从队尾开始 寻找直到发现能立即运行的任务
+////任务双向队列
+//void wqfi(thread *thread, work *newwork) {
+//	work *head = thread->head;
+//	head->pre = newwork;
+//	newwork->next = head;
+//	head = newwork;
+//	return;
+//}
+//void wqlo(thread *thread, work *dest) {
+//	work *end = thread->end;
+//	if (end == NULL)return;
+//	dest = end; end = end->pre;
+//	return;
+//}
+//void wqfo(thread *thread, work *dest) {
+//	work *head = thread->head;
+//	if (head == NULL)return;
+//	dest = head; head = head->next;
+//}
+////线程链表
+//void tci(thread *head, thread *newthread) {
+//	while (head->next != NULL)head = head->next;
+//	head->next = newthread;
+//	return;
+//}
+//void tco(thread *head, thread *willdelete) {
+//	if (head == willdelete)
+//	{
+//		head = head->next;
+//		return;
+//	}
+//	while (head->next != NULL&&head->next != willdelete)head = head->next;
+//	if (head->next == NULL)return;
+//	head->next = willdelete->next;
+//	return;
+//}
+////线程
+//DWORD WINAPI thpool_thread(LPVOID lp) {
+//	thread *tth = (thread *)lp; //这个线程
+//	thpool *pool = tth->back; //线程池
+//
+//	while (1) {
+//		while (1) {
+//			if (tth->stopflag == 1)return 0;
+//			//todo：搜寻工作
+//			if (tth->curwork != NULL)break;
+//			Sleep(1);
+//		}
+//		
+//		//todo：运行
+//		tth->curwork->process=
+//
+//		//任务中断
+//		if (tth->curwork->process != 0)continue;
+//		//任务完成
+//		if (tth->curwork->father != NULL) {
+//			tth->curwork->father->wdone++;
+//		}
+//		//todo 删除此任务节点
+//
+//	}
+//}
+////线程池
+//
+////submit
+//int* thpool_submit(thpool *thpool, void *fun, void *data) {
+//	work *temp = new work;
+//	temp->fun = fun; temp->data = data;
+//	temp->owner = -1; temp->depth = -1;
+//	temp->wnum = new int; *temp->wnum = 1;
+//	temp->wdone = new int; *temp->wdone = 0;
+//	//todo:新任务进入队列
+//	return temp->wdone;
+//}
+////get
+//void thpool_get(int *flag) {
+//	while (*flag >= 0)Sleep(1);
+//	return;
+//}
+
